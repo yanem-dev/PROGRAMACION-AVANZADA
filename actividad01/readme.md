@@ -1,4 +1,4 @@
-# Actividad 1: Introducción a Sistemas Expertos
+# Actividad 1
 
 **Integrantes del equipo:**
 * Yanet del Carmen Miranda Xeque
