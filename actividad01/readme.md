@@ -15,5 +15,5 @@ Este repositorio contiene los entregables correspondientes a la actividad 1.
 * Archivo EL CEREBRO NOS ENGAÑA contiene la presentacion del video EL CEREBRO NOS ENGAÑA DEL PUNTO 2.
 * Archivo PUNTO7.md contiene el resultado del punto y en mark down.
 
-
+ 
 
