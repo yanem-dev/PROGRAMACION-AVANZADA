@@ -1,0 +1,136 @@
+---
+title: "Actividad 8 - Clasificador Naive Bayes FCI"
+author: "YANET DEL CARMEN MIRANDA XEQUE"
+date: "2026-08-31"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    theme: readable
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+# Configuración global para evitar cortes fragmentados en el documento
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, collapse = TRUE)
+```
+
+```{r paquetes, include=FALSE}
+# Los paquetes se cargan en segundo plano sin mostrar texto en el reporte
+if (!require("e1071")) install.packages("e1071", dependencies = TRUE)
+if (!require("knitr")) install.packages("knitr", dependencies = TRUE)
+
+library(e1071)
+library(knitr)
+```
+
+## 1. PLANTEAMIENTO
+
+Se evalúa el rendimiento académico de una muestra de estudiantes de la FCI aplicando el clasificador probabilístico **Naive Bayes**[cite: 2]. A partir de 4 variables predictoras discretas, se estima la variable objetivo **Rendimiento**:
+
+* **Tiempo_Estudio:** Alto ($\ge 15$ h/sem), Medio ($8-14$ h/sem), Bajo ($\le 7$ h/sem)
+* **Asistencia:** Alta ($\ge 90\%$), Media ($75-89\%$), Baja ($\le 74\%$)
+* **Participacion:** Alta ($\ge 80\%$), Media ($50-79\%$), Baja ($\le 49\%$)
+* **SituacionEcon:** Buena, Mala
+* **Variable Objetivo:** Rendimiento (Excelente, Bueno, Regular, Deficiente)
+
+---
+
+## 2. CONJUNTO DE DATOS TABULADOS (30 Estudiantes)
+
+```{r dataset}
+datos_fci <- data.frame(
+  Estudiante = 1:30,
+  TiempoEstudio = c("Alto", "Medio", "Bajo", "Alto", "Medio", "Alto", "Bajo", "Medio", "Alto", "Bajo",
+                    "Alto", "Alto", "Medio", "Medio", "Medio", "Bajo", "Bajo", "Alto", "Alto", "Medio",
+                    "Bajo", "Bajo", "Medio", "Alto", "Alto", "Medio", "Bajo", "Alto", "Medio", "Bajo"),
+  Asistencia = c("Alta", "Media", "Baja", "Alta", "Media", "Alta", "Baja", "Alta", "Media", "Baja",
+                 "Alta", "Alta", "Alta", "Media", "Media", "Media", "Baja", "Alta", "Media", "Alta",
+                 "Baja", "Media", "Media", "Alta", "Alta", "Alta", "Baja", "Media", "Media", "Baja"),
+  Participacion = c("Alta", "Baja", "Baja", "Media", "Media", "Alta", "Baja", "Media", "Alta", "Media",
+                    "Alta", "Media", "Alta", "Media", "Baja", "Baja", "Baja", "Alta", "Media", "Media",
+                    "Media", "Baja", "Baja", "Media", "Alta", "Baja", "Baja", "Alta", "Media", "Media"),
+  SituacionEcon = c("Buena", "Mala", "Mala", "Buena", "Buena", "Buena", "Mala", "Buena", "Buena", "Mala",
+                    "Buena", "Buena", "Buena", "Mala", "Buena", "Mala", "Mala", "Mala", "Buena", "Buena",
+                    "Buena", "Mala", "Mala", "Mala", "Buena", "Buena", "Buena", "Mala", "Buena", "Mala"),
+  Rendimiento = c("Excelente", "Regular", "Deficiente", "Bueno", "Bueno", "Excelente", "Deficiente", "Bueno", "Excelente", "Regular",
+                  "Excelente", "Excelente", "Bueno", "Bueno", "Regular", "Deficiente", "Deficiente", "Excelente", "Bueno", "Bueno",
+                  "Regular", "Regular", "Deficiente", "Bueno", "Excelente", "Regular", "Deficiente", "Bueno", "Bueno", "Deficiente")
+)
+
+# Factores ordenados
+datos_fci$TiempoEstudio <- factor(datos_fci$TiempoEstudio, levels = c("Bajo", "Medio", "Alto"))
+datos_fci$Asistencia    <- factor(datos_fci$Asistencia, levels = c("Baja", "Media", "Alta"))
+datos_fci$Participacion <- factor(datos_fci$Participacion, levels = c("Baja", "Media", "Alta"))
+datos_fci$SituacionEcon <- factor(datos_fci$SituacionEcon, levels = c("Mala", "Buena"))
+datos_fci$Rendimiento   <- factor(datos_fci$Rendimiento, levels = c("Deficiente", "Regular", "Bueno", "Excelente"))
+
+kable(datos_fci, caption = "Tabla 1. Muestra de estudiantes de la FCI")
+```
+
+---
+
+## 3. DIVISION DE DATOS Y ENTRENAMIENTO (80% / 20%)
+
+```{r entrenamiento}
+# Semilla para partición reproducible
+set.seed(10)
+
+datos_modelo <- datos_fci[, -1]
+tamano_train <- round(0.80 * nrow(datos_modelo))
+
+indices_train <- sample(1:nrow(datos_modelo), size = tamano_train, replace = FALSE)
+
+train_data <- datos_modelo[indices_train, ]
+test_data  <- datos_modelo[-indices_train, ]
+
+# Entrenamiento con suavizado de Laplace
+modelo_nb <- naiveBayes(Rendimiento ~ ., data = train_data, laplace = 1)
+```
+
+---
+
+## 4. EVALUACION Y MATRIZ DE CONFUSION
+
+```{r evaluacion}
+# Predicciones sobre el conjunto de prueba
+predicciones <- predict(modelo_nb, newdata = test_data)
+
+# Comparación directa
+comparativa <- data.frame(
+  TiempoEstudio = test_data$TiempoEstudio,
+  Asistencia    = test_data$Asistencia,
+  Participacion = test_data$Participacion,
+  SituacionEcon = test_data$SituacionEcon,
+  Valor_Real    = test_data$Rendimiento,
+  Prediccion_NB = predicciones,
+  Acierto       = ifelse(test_data$Rendimiento == predicciones, "Correcto", "Error")
+)
+
+kable(comparativa, caption = "Tabla 2. Predicciones individuales en la muestra de prueba")
+
+# Matriz de confusión (Filas: Predicción | Columnas: Valor Real)
+matriz_conf <- table(Prediccion = predicciones, Real = test_data$Rendimiento)
+kable(matriz_conf, caption = "Tabla 3. Matriz de Confusión")
+```
+
+### METRICAS DE RENDIMIENTO
+
+```{r metricas, echo=TRUE}
+aciertos   <- sum(diag(matriz_conf))
+total_test <- nrow(test_data)
+exactitud  <- (aciertos / total_test) * 100
+
+resumen_metricas <- data.frame(
+  Metrica = c("Instancias Evaluadas", "Predicciones Correctas (Aciertos)", "Exactitud Global (Accuracy)"),
+  Valor   = c(total_test, aciertos, sprintf("%.2f%%", exactitud))
+)
+
+kable(resumen_metricas, caption = "Tabla 4. Resumen de desempeño del modelo")
+```
+
+---
+
+## 5.CONCLUSIONES
+* El clasificador Naive Bayes identifica adecuadamente los patrones de rendimiento académico a partir del tiempo de estudio, la asistencia y la participación del alumno.
+* El suavizado de Laplace evita probabilidades condicionales nulas ante combinaciones poco observadas en el subconjunto de entrenamiento.
