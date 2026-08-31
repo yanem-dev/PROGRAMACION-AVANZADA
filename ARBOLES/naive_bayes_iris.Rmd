@@ -1,0 +1,120 @@
+---
+title: "CLASIFICACION DE IRIS CON NAIVE BAYES"
+author: "YANET DEL CARMEN MIRANDA XEQUE"
+date: "2026-08-31"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    theme: readable
+    highlight: tango
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# TEORIA
+
+## TEOREMA DE BAYES Y PROBABILIDAD CONDICIONAL
+La probabilidad condicional representa la probabilidad de que ocurra un evento $A$ dado que ya ha sucedido un evento $B$, definida como:
+
+$$P(A \mid B) = \frac{P(A \cap B)}{P(B)}$$
+
+A partir de esta definición y de la regla del producto $P(A \cap B) = P(B \mid A) \cdot P(A)$, se deduce el **Teorema de Bayes**:
+
+$$P(c \mid x) = \frac{P(c) \cdot P(x \mid c)}{P(x)}$$
+
+Donde:
+* $P(c \mid x)$ es la **probabilidad a posteriori** de pertenecer a la clase $c$.
+* $P(c)$ es la **probabilidad a priori** de la clase.
+* $P(x \mid c)$ es la **verosimilitud** (*likelihood*).
+* $P(x)$ es la **probabilidad de la evidencia**, la cual actúa como constante normalizadora para todas las clases comparadas.
+
+## EL CLASIFICADOR NAIVE BAYES
+Dado un vector de características $X = (x_1, x_2, \dots, x_n)$, Naive Bayes aplica el supuesto "ingenuo" de **independencia condicional** entre los atributos dada la clase:
+
+$$P(x_1, \dots, x_n \mid c) = \prod_{i=1}^{n} P(x_i \mid c)$$
+
+Sustituyendo en la formulación y prescindiendo de $P(X)$ al comparar entre clases candidatas:
+
+$$P(c_j \mid x_1, \dots, x_n) \propto P(c_j) \cdot \prod_{i=1}^{n} P(x_i \mid c_j)$$
+
+La clase asignada corresponde a la que maximiza dicha probabilidad:
+
+$$\text{Clase predicha} = \arg\max_{c_j} \left[ P(c_j) \cdot \prod_{i=1}^{n} P(x_i \mid c_j) \right]$$
+
+## NAIVE BAYES CON VARIABLES CONTINUAS (Caso Iris)
+Cuando las variables de entrada son cuantitativas continuas (como la longitud y anchura de pétalos y sépalos en el conjunto de datos *Iris*), no es posible estimar $P(x_i \mid c)$ mediante conteo directo de frecuencias. Se asume que cada atributo sigue una **distribución normal (Gaussiana)** condicional:
+
+$$x_i \mid c \sim \mathcal{N}\left(\mu_i^c, (\sigma_i^c)^2\right)$$
+
+Utilizando la función de densidad de probabilidad gaussiana:
+
+$$P(x_i \mid c) = \frac{1}{\sqrt{2\pi}\sigma_i^c} \exp\left( -\frac{(x_i - \mu_i^c)^2}{2(\sigma_i^c)^2} \right)$$
+
+Durante el entrenamiento, el algoritmo calcula la media ($\mu_i^c$) y la desviación estándar ($\sigma_i^c$) de cada variable para cada clase $c$.
+
+---
+
+# EXPLORACION CONJUNTO DE DATOS IRIS
+
+El conjunto de datos *Iris* de Fisher contiene 150 observaciones distribuidas equitativamente en tres especies botánicas (50 muestras por especie): *setosa*, *versicolor* y *virginica*.
+
+```{r carga_datos}
+data(iris)
+dim(iris)
+head(iris)
+summary(iris)
+table(iris$Species)
+```
+
+---
+
+# IMPLEMENTACION DEL MODELO NAIVE BAYES EN R (`naiveBayes.e1071.iris.simple.r`)
+
+Se utiliza la biblioteca `e1071`, la cual contiene la función `naiveBayes()`.
+
+```{r entrenamiento}
+library(e1071)
+modelo_nb <- naiveBayes(Species ~ ., data = iris)
+print(modelo_nb)
+```
+
+### INTERPRETACION DE LOS PARAMETROS DEL MODELO
+La salida muestra:
+1. **A-priori probabilities:** $P(\text{setosa}) = 0.333$, $P(\text{versicolor}) = 0.333$, $P(\text{virginica}) = 0.333$.
+2. **Tablas condicionales:** Para cada variable numérica se muestran la media ($\mu$) y la desviación estándar ($\sigma$) por especie.
+
+---
+
+# PREDICCION Y EVALUACION DEL MODELO
+
+Se generan las predicciones sobre el conjunto de datos y se construye la matriz de confusión.
+
+```{r evaluacion}
+predicciones <- predict(modelo_nb, iris)
+matriz_confusion <- table(Real = iris$Species, Predicho = predicciones)
+print(matriz_confusion)
+
+exactitud <- sum(diag(matriz_confusion)) / sum(matriz_confusion)
+cat("Exactitud global (Accuracy):", round(exactitud * 100, 2), "%\n")
+```
+
+## INSPECCION A PROBABILIDADES DE POSTERIORI
+
+```{r probabilidades_posteriori}
+probabilidades <- predict(modelo_nb, iris, type = "raw")
+head(probabilidades)
+```
+
+---
+
+# CONCLUSIONES
+
+1. **RENDIMIENTO DE CLASIFICACION:** El modelo alcanza un **96% de exactitud** (144 de 150 aciertos).
+2. **SEPARABILIDAD DE IRIS-SETOSA:** Las 50 observaciones de *setosa* se clasifican sin error alguno, debido a que las dimensiones de sus pétalos son significativamente menores y sus densidades gaussianas no se solapan con las demás.
+3. **SOLAPAMIENTO - VIRGINICA:** Se presentan 6 confusiones (3 *versicolor* clasificadas como *virginica* y 3 *virginica* clasificadas como *versicolor*), atribuibles a zonas donde las campanas gaussianas de longitud y anchura de pétalo comparten densidades similares.
+4. **VALIDEZ DEL SUPUESTO:** A pesar de asumir independencia condicional entre las medidas morfológicas, Naive Bayes resulta ser un clasificador eficiente y robusto para este problema.
